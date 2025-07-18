@@ -13,13 +13,13 @@ app.on('window-all-closed', function () {
 app.on('ready', function () {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    frame: false,
-    transparent: true
+    frame: true,
+    // transparent: true,
+    fullscreen: true,
   });
+  mainWindow.webContents.openDevTools();
 
-  mainWindow.setIgnoreMouseEvents(true)
+  // mainWindow.setIgnoreMouseEvents(true)
 
   // and load the index.html of the app.
   mainWindow.loadURL('file://' + __dirname + '/index.html');
