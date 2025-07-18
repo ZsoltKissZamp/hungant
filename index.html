@@ -1,172 +1,252 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<title>three.js webgl - GLTFloader + variants</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<link type="text/css" rel="stylesheet" href="main.css">
-	</head>
+  <head>
+    <title>three.js webgl - buffergeometry - uint</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <style>
+      body {
+        color: #cccccc;
+        font-family: Monospace;
+        font-size: 13px;
+        text-align: center;
 
-	<body>
-		<div id="info">
-			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> - GLTFLoader + <a href="https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_variants" target="_blank" rel="noopener">KHR_materials_variants</a><br />
-			<a href="https://github.com/pushmatrix/glTF-Sample-Models/tree/master/2.0/MaterialsVariantsShoe" target="_blank" rel="noopener">Materials Variants Shoe</a> by
-			<a href="https://github.com/Shopify" target="_blank" rel="noopener">Shopify, Inc</a><br />
-			<a href="https://hdrihaven.com/hdri/?h=quarry_01" target="_blank" rel="noopener">Quarry</a> from <a href="https://hdrihaven.com/" target="_blank" rel="noopener">HDRI Haven</a>
-		</div>
+        background-color: rgba(0, 0, 0, 0);
+        margin: 0px;
+        overflow: hidden;
+      }
 
-		<script type="importmap">
-			{
-				"imports": {
-					"three": "../build/three.module.js",
-					"three/addons/": "./jsm/"
-				}
-			}
-		</script>
+      #info {
+        position: absolute;
+        top: 0px;
+        width: 100%;
+        padding: 5px;
+      }
 
-		<script type="module">
+      a {
+        color: #0080ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container"></div>
+    <div id="info">
+      <a href="http://threejs.org" target="_blank" rel="noopener">three.js</a>
+      webgl - buffergeometry - uint
+    </div>
 
-			import * as THREE from 'three';
+    <script src="vendor/three.min.js"></script>
 
-			import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-			import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-			import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-			import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+    <script>
+      var container;
 
-			let camera, scene, renderer;
-			let gui;
+      var camera, scene, renderer;
 
-			const state = { variant: 'midnight' };
+      var mesh;
 
-			init();
-			render();
+      init();
+      animate();
 
-			function init() {
+      function init() {
+        container = document.getElementById("container");
 
-				const container = document.createElement( 'div' );
-				document.body.appendChild( container );
+        //
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.25, 20 );
-				camera.position.set( 2.5, 1.5, 3.0 );
+        camera = new THREE.PerspectiveCamera(
+          27,
+          window.innerWidth / window.innerHeight,
+          1,
+          3500
+        );
+        camera.position.z = 2750;
 
-				scene = new THREE.Scene();
+        scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x050505, 2000, 3500);
 
-				new RGBELoader()
-					.setPath( 'textures/equirectangular/' )
-					.load( 'quarry_01_1k.hdr', function ( texture ) {
+        //
 
-						texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.add(new THREE.AmbientLight(0x444444));
 
-						scene.background = texture;
-						scene.environment = texture;
+        var light1 = new THREE.DirectionalLight(0xffffff, 0.5);
+        light1.position.set(1, 1, 1);
+        scene.add(light1);
 
-						render();
+        var light2 = new THREE.DirectionalLight(0xffffff, 1.5);
+        light2.position.set(0, -1, 0);
+        scene.add(light2);
 
-						// model
+        //
 
-						const loader = new GLTFLoader().setPath( 'models/gltf/MaterialsVariantsShoe/glTF/' );
-						loader.load( 'MaterialsVariantsShoe.gltf', function ( gltf ) {
+        var triangles = 160000;
 
-							gltf.scene.scale.set( 10.0, 10.0, 10.0 );
+        var geometry = new THREE.BufferGeometry();
 
-							scene.add( gltf.scene );
+        var indices = new Uint32Array(triangles * 3);
 
-							// GUI
-							gui = new GUI();
+        for (var i = 0; i < indices.length; i++) {
+          indices[i] = i;
+        }
 
-							// Details of the KHR_materials_variants extension used here can be found below
-							// https://github.com/KhronosGroup/glTF/tree/master/extensions/2.0/Khronos/KHR_materials_variants
-							const parser = gltf.parser;
-							const variantsExtension = gltf.userData.gltfExtensions[ 'KHR_materials_variants' ];
-							const variants = variantsExtension.variants.map( ( variant ) => variant.name );
-							const variantsCtrl = gui.add( state, 'variant', variants ).name( 'Variant' );
+        var positions = new Float32Array(triangles * 3 * 3);
+        var normals = new Float32Array(triangles * 3 * 3);
+        var colors = new Float32Array(triangles * 3 * 3);
 
-							selectVariant( scene, parser, variantsExtension, state.variant );
+        var color = new THREE.Color();
 
-							variantsCtrl.onChange( ( value ) => selectVariant( scene, parser, variantsExtension, value ) );
+        var n = 800,
+          n2 = n / 2; // triangles spread in the cube
+        var d = 12,
+          d2 = d / 2; // individual triangle size
 
-							render();
+        var pA = new THREE.Vector3();
+        var pB = new THREE.Vector3();
+        var pC = new THREE.Vector3();
 
-						} );
+        var cb = new THREE.Vector3();
+        var ab = new THREE.Vector3();
 
-					} );
+        for (var i = 0; i < positions.length; i += 9) {
+          // positions
 
-				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				renderer.toneMapping = THREE.ACESFilmicToneMapping;
-				renderer.toneMappingExposure = 1;
-				container.appendChild( renderer.domElement );
+          var x = Math.random() * n - n2;
+          var y = Math.random() * n - n2;
+          var z = Math.random() * n - n2;
 
-				const controls = new OrbitControls( camera, renderer.domElement );
-				controls.addEventListener( 'change', render ); // use if there is no animation loop
-				controls.minDistance = 2;
-				controls.maxDistance = 10;
-				controls.target.set( 0, 0.5, - 0.2 );
-				controls.update();
+          var ax = x + Math.random() * d - d2;
+          var ay = y + Math.random() * d - d2;
+          var az = z + Math.random() * d - d2;
 
-				window.addEventListener( 'resize', onWindowResize );
+          var bx = x + Math.random() * d - d2;
+          var by = y + Math.random() * d - d2;
+          var bz = z + Math.random() * d - d2;
 
-			}
+          var cx = x + Math.random() * d - d2;
+          var cy = y + Math.random() * d - d2;
+          var cz = z + Math.random() * d - d2;
 
-			function selectVariant( scene, parser, extension, variantName ) {
+          positions[i] = ax;
+          positions[i + 1] = ay;
+          positions[i + 2] = az;
 
-				const variantIndex = extension.variants.findIndex( ( v ) => v.name.includes( variantName ) );
+          positions[i + 3] = bx;
+          positions[i + 4] = by;
+          positions[i + 5] = bz;
 
-				scene.traverse( async ( object ) => {
+          positions[i + 6] = cx;
+          positions[i + 7] = cy;
+          positions[i + 8] = cz;
 
-					if ( ! object.isMesh || ! object.userData.gltfExtensions ) return;
+          // flat face normals
 
-					const meshVariantDef = object.userData.gltfExtensions[ 'KHR_materials_variants' ];
+          pA.set(ax, ay, az);
+          pB.set(bx, by, bz);
+          pC.set(cx, cy, cz);
 
-					if ( ! meshVariantDef ) return;
+          cb.subVectors(pC, pB);
+          ab.subVectors(pA, pB);
+          cb.cross(ab);
 
-					if ( ! object.userData.originalMaterial ) {
+          cb.normalize();
 
-						object.userData.originalMaterial = object.material;
+          var nx = cb.x;
+          var ny = cb.y;
+          var nz = cb.z;
 
-					}
+          normals[i] = nx;
+          normals[i + 1] = ny;
+          normals[i + 2] = nz;
 
-					const mapping = meshVariantDef.mappings
-						.find( ( mapping ) => mapping.variants.includes( variantIndex ) );
+          normals[i + 3] = nx;
+          normals[i + 4] = ny;
+          normals[i + 5] = nz;
 
-					if ( mapping ) {
+          normals[i + 6] = nx;
+          normals[i + 7] = ny;
+          normals[i + 8] = nz;
 
-						object.material = await parser.getDependency( 'material', mapping.material );
-						parser.assignFinalMaterial( object );
+          // colors
 
-					} else {
+          var vx = x / n + 0.5;
+          var vy = y / n + 0.5;
+          var vz = z / n + 0.5;
 
-						object.material = object.userData.originalMaterial;
+          color.setRGB(vx, vy, vz);
 
-					}
+          colors[i] = color.r;
+          colors[i + 1] = color.g;
+          colors[i + 2] = color.b;
 
-					render();
+          colors[i + 3] = color.r;
+          colors[i + 4] = color.g;
+          colors[i + 5] = color.b;
 
-				} );
+          colors[i + 6] = color.r;
+          colors[i + 7] = color.g;
+          colors[i + 8] = color.b;
+        }
 
-			}
+        geometry.addAttribute("index", new THREE.BufferAttribute(indices, 1));
+        geometry.addAttribute(
+          "position",
+          new THREE.BufferAttribute(positions, 3)
+        );
+        geometry.addAttribute("normal", new THREE.BufferAttribute(normals, 3));
+        geometry.addAttribute("color", new THREE.BufferAttribute(colors, 3));
 
-			function onWindowResize() {
+        geometry.computeBoundingSphere();
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+        var material = new THREE.MeshPhongMaterial({
+          color: 0xaaaaaa,
+          specular: 0xffffff,
+          shininess: 250,
+          side: THREE.DoubleSide,
+          vertexColors: THREE.VertexColors,
+        });
 
-				renderer.setSize( window.innerWidth, window.innerHeight );
+        mesh = new THREE.Mesh(geometry, material);
+        scene.add(mesh);
 
-				render();
+        //
 
-			}
+        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+        renderer.setClearColor(0x000000, 0);
+        // renderer.setClearColor( scene.fog.color );
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
 
-			//
+        // renderer.gammaInput = true;
+        // renderer.gammaOutput = true;
 
-			function render() {
+        container.appendChild(renderer.domElement);
 
-				renderer.render( scene, camera );
+        //
 
-			}
+        window.addEventListener("resize", onWindowResize, false);
+      }
 
-		</script>
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
 
-	</body>
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      //
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        render();
+      }
+
+      function render() {
+        var time = Date.now() * 0.001;
+
+        mesh.rotation.x = time * 0.25;
+        mesh.rotation.y = time * 0.5;
+
+        renderer.render(scene, camera);
+      }
+    </script>
+  </body>
 </html>
